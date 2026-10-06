@@ -1,0 +1,23 @@
+#!/bin/sh
+# Maintainer: ax - ax@slackware.eu
+# IRC: irc1.slacware.eu #lug
+# SLK: UmbrellaNet
+# Target: Asus X555LA (i3 Core) - MediaTek MT7630E Combo Card Fix
+
+attiva_bluetooth() {
+    sleep 4
+    /sbin/modprobe -r btusb
+    sleep 1
+    /sbin/modprobe btusb
+    sleep 1
+
+    if [ -e "/sys/bus/usb/drivers/btusb/new_id" ]; then
+        echo "0489 e080" > /sys/bus/usb/drivers/btusb/new_id
+    fi
+    sleep 1
+
+    /usr/sbin/rfkill unblock bluetooth
+    /etc/init.d/bluetooth restart
+}
+
+attiva_bluetooth &
