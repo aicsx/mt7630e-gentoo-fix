@@ -1,0 +1,7 @@
+# Backup locali
+*.pre-*
+*.bak-*
+
+# Test e log temporanei
+/test-rollback.log
+/test-rollback.sh

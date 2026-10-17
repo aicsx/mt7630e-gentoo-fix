@@ -1,63 +1,82 @@
-# Asus X555LA MediaTek MT7630E Fix for Gentoo OpenRC
+# ASUS X555LA — MediaTek MT7630E Fix for Gentoo OpenRC
 
-Custom power management and initialization infrastructure tailored for the **MediaTek MT7630E (Combo Wi-Fi & Bluetooth)** hardware layout embedded inside the **Asus X555LA (Intel Core i3 variant)** laptop architecture running **Gentoo Linux** under **OpenRC** and **elogind**.
+Scripts for the MediaTek MT7630E Wi-Fi/Bluetooth combo device on Gentoo Linux with OpenRC and elogind.
 
-## Maintainer Info
-* **Author:** ax (`ax@slackware.eu`)
-* **IRC Network:** `irc1.slacware.eu` channel `#lug`
-* **Channel/SLK:** `UmbrellaNet`
+The installer detects the hardware at runtime instead of assuming fixed USB and PCI addresses.
 
----
+## Features
 
-## The Hardware Problem
-The MediaTek MT7630E chipset shares a unified internal bus configuration where the Wi-Fi card interfaces directly via PCIe (`0000:03:00.0`), while the integrated Bluetooth transceiver is mapped as an obscure Foxconn internal USB device (`ID 0489:e080`).
+- Detects the Bluetooth USB device using sysfs interface descriptors, with manufacturer/product labels as a fallback.
+- Detects the MediaTek MT7630E Wi-Fi PCI device using vendor/device IDs.
+- Installs a Bluetooth initialization script for OpenRC.
+- Installs an elogind suspend/resume hook for the Wi-Fi PCI device.
+- Generates an active udev rule using the USB vendor and product IDs detected at installation time. Bluetooth initialization and suspend/resume handling remain in the existing scripts.
+- Creates backups before replacing installed files.
+- Provides rollback handling if installation fails.
+- Does not modify GRUB or `/etc/conf.d/modules`.
 
-On vanilla Linux kernels, this deployment suffers from two fatal architectural race conditions:
-1. **At Boot:** The native `btusb` driver initializes prior to the expansion of the virtual system environment (`sysfs`), failing to attach the hardware vendor bindings and leaving the Bluetooth interface completely missing.
-2. **On Suspend/Resume:** Wakeup routines throw severe host controller interface failures (`Bluetooth: hci0: Opcode 0x0c03 failed: -110`) while the wireless networking state breaks down entirely, dropping `wlan0`.
+## Requirements
 
-## The Solution Architectural Design
-This repository deploys an isolated, robust automated shell interface to safely orchestrate device power pathways without altering stable mainstream kernel structures:
-* **`install.sh`**: Automated installer providing systemic string injection and layout setup.
-* **`40-mediatek-wifi.sh`**: Handles clean teardown/unload of the active `mt76` network stacks during suspension, executing hot-unplug and hot-plug bus recalibrations via `rescan` hooks on wakeup.
-* **`99-mt7630e-bluetooth.start`**: Asynchronously delays Bluetooth interface probing, performing an uninhibited runtime reset and dynamic device assignment (`new_id`) once system resource nodes stabilize.
-* **`99-mt7630e-bluetooth.rules`**: Preserves raw modular dynamic configurations over long-term Portage environments.
+- Gentoo Linux
+- OpenRC
+- elogind
+- Bash, `flock`, `udevadm`, `rc-update`, and standard system utilities
+- Root privileges for installation
 
----
+## Hardware detection
+
+The installer detects the Bluetooth USB device and Wi-Fi PCI device from sysfs. It stops if detection is missing or ambiguous.
+
+The detected IDs describe the current machine and are not hard-coded into the runtime scripts.
 
 ## Installation
 
-### 1. Clone and Deploy
-Clone this project repository and run the setup logic inside your terminal:
-```bash
-git clone https://github.com
-cd mt7630e-gentoo-fix
-sudo chmod +x install.sh
-sudo ./install.sh
-```
+Clone the repository and enter its directory:
 
-### 2. Manual GRUB Step
-To completely inhibit internal ACPI runtime crashes on your Asus motherboard layout, update your target kernel bootsmith variables:
+    git clone https://github.com/aicsx/mt7630e-gentoo-fix.git
+    cd mt7630e-gentoo-fix
 
-1. Open `/etc/default/grub` using **Vim** and append the explicit low-energy states disablers (`pcie_aspm=off` and `intel_iommu=off`) inside your production bootline string:
-   ```text
-   GRUB_CMDLINE_LINUX_DEFAULT=\"net.ifnames=0 quiet splash resume=UUID=0b930a6b-5014-4a54-9885-ab09aa1a26af pcie_aspm=off intel_iommu=off\"
-   ```
-2. Recompile and update the active boot selection map:
-   ```bash
-   sudo grub-mkconfig -o /boot/grub/grub.cfg
-   ```
+Check the detected hardware without changing the system:
 
-### 3. Reboot
-Perform a cold system reboot sequence to settle initialization daemons:
-```bash
-sudo reboot
-```
+    bash build/install.sh --check
 
----
+Review the installer, then run it with root privileges:
 
-## Operational Verification
-After boot or immediate display/lid wakeup sequences, check functionality via standard diagnostic tools:
-* Verify device pairing interface visibility: `bluetoothctl list`
-* Verify physical kernel device enumeration: `lsusb`
-* Trace active wireless link configuration: `ip a` or `ifconfig wlan0`
+    sudo bash build/install.sh
+
+The installer creates a timestamped backup directory under `/root` before replacing the target files. Keep this directory until the new configuration has been tested.
+
+## Installed files
+
+- `/etc/udev/rules.d/99-mt7630e-bluetooth.rules`
+- `/etc/local.d/99-mt7630e-bluetooth.start`
+- `/usr/lib/elogind/system-sleep/40-mediatek-wifi.sh`, if that directory exists; otherwise `/lib/elogind/system-sleep/40-mediatek-wifi.sh`
+
+The installer enables the OpenRC `local` and `bluetooth` services.
+
+## Verification
+
+Check Bluetooth enumeration:
+
+    lsusb
+    bluetoothctl list
+
+Check the Wi-Fi PCI device and driver:
+
+    lspci -nnk
+    ip link
+
+Check OpenRC service status:
+
+    rc-service bluetooth status
+    rc-service local status
+
+Test suspend/resume and verify that Wi-Fi and Bluetooth recover correctly.
+
+## GRUB and kernel parameters
+
+This project does not change GRUB configuration or kernel command-line parameters. Do not copy an example resume UUID or add kernel parameters without confirming that they are appropriate for your system.
+
+## Safety
+
+Review the scripts before installation. The `--check` mode performs hardware detection and validation only; it does not install files or enable services.

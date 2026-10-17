@@ -1,0 +1,4 @@
+# MT7630E Gentoo Fix
+# ID USB generati automaticamente dall'installer in base al dispositivo rilevato.
+
+SUBSYSTEM=="usb", ATTR{idVendor}=="@USB_VENDOR@", ATTR{idProduct}=="@USB_PRODUCT@", RUN+="/bin/sh -c 'sleep 1 && echo @USB_VENDOR@ @USB_PRODUCT@ > /sys/bus/usb/drivers/btusb/new_id'"

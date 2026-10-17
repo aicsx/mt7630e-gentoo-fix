@@ -1,5 +1,5 @@
-# Maintainer: ax - ax@slackware.eu
-# IRC: irc1.slacware.eu #lug
-# SLK: UmbrellaNet
-# Target: Asus X555LA (i3 Core) - MediaTek MT7630E Combo Card Fix
+# MT7630E Gentoo Fix
+# Esempio generato per il dispositivo USB rilevato: 0489:e080.
+# L'installer usa il template .in e rileva automaticamente gli ID.
+
 SUBSYSTEM=="usb", ATTR{idVendor}=="0489", ATTR{idProduct}=="e080", RUN+="/bin/sh -c 'sleep 1 && echo 0489 e080 > /sys/bus/usb/drivers/btusb/new_id'"
